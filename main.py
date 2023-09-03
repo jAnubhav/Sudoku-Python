@@ -1,296 +1,139 @@
-from tkinter import *
-from time import ctime
+import pygame as pg
+from pygame import display, draw, font, mixer, mouse
 from random import sample
-from functools import partial
-import tkinter.messagebox as msg
 
-#==================================== Main Game =======================================#
+### ========================================= Particular Sizes ========================================= ###
 
-def game():
-    row=[r*3+g for r in sample(range(3),3) for g in sample(range(3),3)]
-    col=[r*3+g for r in sample(range(3),3) for g in sample(range(3),3)]
-    num=sample(range(1,10),9)
-    board=[[num[(3*(r%3)+r//3+c)%9] for c in col] for r in row]
-    dup,dup3=[],[]
-    for i in range(len(board)):
-        for j in board[i]:
-            dup.append(j),dup3.append(j)
-    for i in sample(range(81),48):
-        dup[i]=" "
-    return dup,dup3
+SCREEN_DIMS = (410, 600)
 
-#==================================== Global Variables =================================#
+CELL_SIZE = 38
+CELL_GAP = 2
 
-gs=[]
-no,bl,allnum,frame,btn=" ",[],[],[],[]
-start_widget=[]
-menu,game_frames=[],[]
-howto=[]
-all_moves,flag=[],0
-erase=False
-fin_flag,start=0,0
+BLOCK_SIZE = CELL_SIZE*3 + CELL_GAP*2
+BLOCK_GAP = 3
 
-#==================================== Start Page =======================================#
+GRID_SIZE = BLOCK_SIZE*3 + BLOCK_GAP*4
+PAD = [(SCREEN_DIMS[0] - GRID_SIZE)/2 + BLOCK_GAP + 30*i for i in range(2)]
 
-def start_page():
-    global start_widget
-    b1=Label(root,bg='gray',height=1)
-    b1.pack()
-    wel=Label(root,bg='gray',text="Welcome!!!",fg="white",font=('arial',28,'bold'))
-    wel.pack()
-    b2=Label(root,bg='gray',height=2)
-    b2.pack()
-    start=Button(root,bg="white",text='Start Game',relief=RIDGE,bd=3,width=10,
-                 font=('times new roman',19),command=start_game)
-    start.pack()
-    b3=Label(root,bg='gray')
-    b3.pack()
-    htp=Button(root,bg="white",text='How To Play',relief=RIDGE,bd=3,width=10,
-                 font=('times new roman',19),command=howtoplay)
-    htp.pack()
-    b4=Label(root,bg='gray')
-    b4.pack()
-    iext=Button(root,bg="white",text='Exit',relief=RIDGE,bd=3,width=10,
-                 font=('times new roman',19),command=iexit)
-    iext.pack()
-    start_widget=[b1,wel,b2,start,b3,htp,b4,iext]
+### ======================================== Particular Colors ========================================= ###
 
-def iexit():
-    con=msg.askyesno("Confirm Exit?","Are you sure you want to leave?")
-    if con==1:
-        root.destroy()
+myColors = {"BLACK": "#000000", "BLUE": "#4A4ADD", "DARK": "#121212",
+            "DARK2": "#2A2A2A", "GRAY": "#3A3A3A", "WHITE": "#FFFFFF"}
 
-#================================= How To Play Page ====================================#
+### ========================================== Grid Creation =========================================== ###
 
-def howtoplay():
-    global howto
-    for i in start_widget:
-        i.destroy()
-    b1=Label(root,text="The Game Of \nNumbers",bg="gray",fg='white',height=2,
-             font=('times',30,'bold'))
-    b1.pack()
-    b2=Label(root,text='''Sudoku is played on a grid of 9x9
-spaces. With in the columns and
-rows are 9 squares. Each square
-needs to be filled out with the
-numbers 1-9, without repeating
-any numbers with in the column,
-row or square. Select the number
-to fill from blue boxes and fill
-all the empty boxes by clicking
-on them.''',
-             height=11,bg="gray",fg='white',font=('times',15,'bold'))
-    b2.pack()
-    ok=Button(root,text='Go Back',bg='white',font=('times',14),relief=RIDGE,bd=5,
-              command=returnback)
-    ok.pack()
-    howto=[b1,b2,ok]
+def shuffledList(extra=0):
+    return [i*3+j+extra for i in sample(range(3), 3) for j in sample(range(3), 3)]
 
-def returnback():
-    global howto
-    for i in howto:
-        i.destroy()
-    start_page()
-    howto=[]
+def gridCreation():
+    row, col, num = list(map(lambda x: shuffledList(x//2), range(3)))
+    grid = [[num[(3*(r % 3)+r//3+c) % 9] for r in row] for c in col]
 
-#==================================== Game Page ========================================#
+    spaces = sample(range(81), 45)
+    puzzle = [[' ' if (i*9+j in spaces) else grid[i][j] for j in range(9)] for i in range(9)]
 
-def start_game():
-    for i in start_widget:
-        i.destroy()
-    game_layout()
+    return grid, puzzle
 
-def game_layout():
-    global menu,game_frames,gs,start
-    start=ctime()[11:19]
-    gs=game()
-    menubar=Menu(root)
-    menubar.add_command(label="New Game",command=partial(change_game,0))
-    menubar.add_command(label="Restart",command=partial(change_game,1))
-    menubar.add_command(label="Undo",command=undo)
-    menubar.add_command(label="Eraser",command=eraser)
-    menubar.add_command(label="Check",command=check)
-    root.config(menu=menubar)
-    menu=menubar
-    k=0
-    for i in range(9):
-        frame.append(Frame(root,height=10,width=15,bg="gray"))
-        frame[i].pack()
-        btn.append([])
-        if i==3 or i==6:
-            bl.append(Label(frame[i],height=1,width=1,bg="gray",font=('arial',3)))
-            bl[k].pack()
-            k+=1
-        for j in range(9):
-            if j==3 or j==6:
-                bl.append(Label(frame[i],height=1,width=1,bg="gray",font=('arial',3)))
-                bl[k].pack(side=LEFT)
-                k+=1
-            btn[i].append(Button(frame[i],relief=RIDGE,height=1,width=2,text=gs[0][i*9+j]
-                                 ,bg='black',fg='white',font=('arial',12,'bold')))
-            btn[i][j].pack(side=LEFT,padx=1,pady=1)
-            btn[i][j]['command']=partial(number_ent,i,j)
-            if btn[i][j]["text"]!=' ':
-                btn[i][j]["activebackground"]='red'
-    b1=Label(root,width=20,bg="gray")
-    b1.pack()
-    main_f=Frame(root,height=8,width=15,bg="gray")
-    main_f.pack()
-    for i in range(9):
-        allnum.append(Button(main_f,bd=2,text=i+1,bg="steel blue",fg="white",
-                             font=('courier',12,'bold'),relief=RIDGE,height=1,width=2))
-        allnum[i].pack(side=LEFT,padx=2)
-        allnum[i]['command']=partial(number_ch,i+1)
-    b2=Label(root,height=1,width=20,bg="gray")
-    b2.pack()
-    fin=Frame(root,height=10,width=15,bg="gray")
-    fin.pack()
-    btn_fin=Button(fin,width=8,text="Go Back",font=('times new roman',14),relief=RIDGE,
-                   command=goback)
-    btn_fin.pack(side=LEFT,padx=13)
-    btn_res=Button(fin,width=8,text="Finish",font=('times new roman',14),relief=RIDGE,
-                   command=finish_game)
-    btn_res.pack(side=LEFT,padx=13)
-    game_frames=[b1,main_f,b2,fin]
+### ========================================== Cell Creation =========================================== ###
 
-#==================================== Game Functions ===================================#
+def cellCreation(left, top, bg, text="", width=CELL_SIZE, height=CELL_SIZE):
+    draw.rect(screen, bg, pg.Rect(PAD[0] + left, PAD[1] + top, width, height))
+    screen.blit(textFont.render(str(text), True, myColors["WHITE"]), (PAD[0] + left + (width - 8)/2, PAD[1] + top + (height - 16)/2))
 
-def number_ch(i):
-    global no,erase
-    erase=False
-    if no==i:
-        no=" "
-        for i in range(9):
-            allnum[i]['bg']='steel blue'
-            for j in range(9):
-                btn[i][j]['bg']='black'
-    else:
-        no=i
-        for i in range(9):
-            if allnum[i]['text']==no:
-                allnum[i]['bg']='black'
-            else:
-                allnum[i]['bg']='steel blue'
-            for j in range(9):
-                if btn[i][j]['text']==no:
-                    btn[i][j]['bg']='steel blue'
-                else:
-                    btn[i][j]['bg']='black'
+def gridCells(pos_x, pos_y, bg=myColors["BLUE"]):
+    cellCreation((BLOCK_SIZE + BLOCK_GAP)*(pos_x//3) + (CELL_SIZE + CELL_GAP)*(pos_x%3),  (BLOCK_SIZE + BLOCK_GAP)*(pos_y//3) + (CELL_SIZE + CELL_GAP)*(pos_y%3), bg, puzzle[pos_y][pos_x])
 
-def number_ent(x,y):
-    global flag,erase 
-    if flag!=0:
-        flag-=1
-    if erase==True and gs[0][x*9+y]==' ':
-        btn[x][y]['text']=' '
-        btn[x][y]['bg']='black'
-    elif gs[0][x*9+y]==' ' and no!=' ':
-        btn[x][y]['text']=no
-        btn[x][y]['bg']='steel blue'
-        all_moves.append((x,y))
+def numberCells(index, bg=myColors["BLUE"]):
+    cellCreation((CELL_SIZE + BLOCK_GAP)*(index-1)+1, (CELL_SIZE + CELL_GAP)*10+2, bg, index, 30, 34)
 
-def goback(n=1):
-    global frame,menu,game_frames,btn,bl,allnum
-    if n==1:
-        con=msg.askyesno("Leave?","Are you sure you want to leave")
-    else:
-        con=1
-    if con==1:
-        menu.destroy()
-        for i in frame:
-            i.destroy()
-        for j in game_frames:
-            j.destroy()
-        for i in btn:
-            for j in i:
-                j.destroy()
-        for i in bl:
-            i.destroy()
-        for i in allnum:
-            i.destroy()
-        start_page()
-        frame,menu,game_frames,btn,bl,allnum=[],[],[],[],[],[]
+### ============================================ Mark Cells ============================================ ###
 
-def finish_game():
-    global fin_flag
+def markCells(num):
+    global cNumber
+
+    numberCells(num)
+    if (cNumber != ' '):
+        numberCells(cNumber, myColors["GRAY"])
+    
     for i in range(9):
         for j in range(9):
-            if btn[i][j]['text']!=gs[1][i*9+j]:
-                fin_flag=1
-    if fin_flag==0:
-        fin=msg.showinfo("Game Over",f"The game is over. You won\n\n  Started    : \
-{start}\n\n  Finished  : {ctime()[11:19]}")
-        goback(n=0)
-    else:
-        fin=msg.showinfo("Error","The game is not over yet")
-        fin_flag=0
+            if (puzzle[i][j] == cNumber):
+                gridCells(j, i, myColors["GRAY"])
+            elif (puzzle[i][j] == num):
+                gridCells(j, i)
+    cNumber = [num, ' '][cNumber == num]
 
-#================================= MenuBar Functions ===================================#
+### ========================================== Board Creation ========================================== ###
 
-def change_game(no):
-    if no==0:
-        global gs
-        gs=game()
+def boardCreation():
+    cellCreation(-BLOCK_GAP, -BLOCK_GAP, bg=myColors["BLACK"], width=GRID_SIZE, height=GRID_SIZE)
     for i in range(9):
-        allnum[i]['bg']='steel blue'
+        cellCreation((CELL_SIZE + BLOCK_GAP)*i-1, (CELL_SIZE + CELL_GAP)*10, myColors["BLACK"], width=34)
+        numberCells(i+1, myColors["GRAY"])
         for j in range(9):
-            btn[i][j]["text"]=gs[0][i*9+j]
-            btn[i][j]['bg']='black'
-            if btn[i][j]["text"]!=' ':
-                btn[i][j]["activebackground"]='red'
-            else:
-                btn[i][j]["activebackground"]='white'
+            if (not(i%3 or j%3)):
+                cellCreation((BLOCK_SIZE + BLOCK_GAP)*(j//3), (BLOCK_SIZE + BLOCK_GAP)*(i//3), bg=myColors["DARK"], width=BLOCK_SIZE, height=BLOCK_SIZE)
+            gridCells(j, i, myColors["GRAY"])
 
-def undo():
-    global flag
-    if flag<5 and len(all_moves)!=0:
-        pos=all_moves[-1]
-        all_moves.pop(-1)
-        btn[pos[0]][pos[1]]['text']=' '
-        btn[pos[0]][pos[1]]['bg']='black'
-        flag+=1
-    else:
-        msg.showinfo("Undo Move","Cannot Undo Move Now")
-
-def eraser():
-    global erase
-    erase=True
-    for i in range(9):
-        allnum[i]['bg']='steel blue'
-        for j in range(9):
-            if gs[0][i*9+j]!=' ' or btn[i][j]['text']==' ':
-                btn[i][j]['bg']='black'
-            else:
-                btn[i][j]['bg']='steel blue'
-
-def check():
-    global no
-    no=' '
-    sol=gs[1]
-    for i in range(9):
-        allnum[i]['bg']='steel blue'
-        for j in range(9):
-            btn[i][j]['bg']='black'
-            if btn[i][j]['text']!=' ':
-                if btn[i][j]['text']==sol[i*9+j]:
-                    btn[i][j]['bg']='steel blue'
-                else:
-                    btn[i][j]['bg']='red'
-
-#====================================== Main Program ===================================#
-
-root=Tk()
-root.title("Sudoku")
-root.config(bg="gray")
-root.resizable(False,False)
-root.geometry("320x520+480+110")
-
-b1=Label(root,bg='gray',height=2)
-b1.pack()
-
-#===================================== Main Function ===================================#
+### ========================================= Main Game Starts ========================================= ###
 
 if __name__ == "__main__":
-    start_page()
+    grid, puzzle = gridCreation()
+    mistakes, cNumber = 0, ' '
 
-root.mainloop()
+    pg.init()
+
+    screen = display.set_mode(SCREEN_DIMS)
+    display.set_caption("Sudoku")
+    screen.fill(myColors["DARK2"])
+
+    correctSound = mixer.Sound("./assets/correct.mp3")
+    incorrectSound = mixer.Sound("./assets/incorrect.mp3")
+    gameoverSound = mixer.Sound("./assets/gameover.mp3")
+    successSound = mixer.Sound("./assets/success.mp3")
+
+    textFont = font.SysFont(None, 26)
+    extraFont = font.SysFont(None, 21)
+
+    boardCreation()
+
+    status = True
+    while (status):
+        ticks = pg.time.get_ticks()//1000
+        mm, ss = ticks//60, ticks%60
+        
+        draw.rect(screen, myColors["DARK2"], pg.Rect(PAD[0] - BLOCK_GAP, PAD[1] - 24, 100, 21))
+        screen.blit(extraFont.render(f"Time  {mm:02} : {ss:02}", True, myColors["WHITE"]), (PAD[0], PAD[1] - 21))
+
+        draw.rect(screen, myColors["DARK2"], pg.Rect(GRID_SIZE - CELL_SIZE*2, PAD[1] - 24, 100, 21))
+        screen.blit(extraFont.render(f"Mistakes : {mistakes}/3", True, myColors["WHITE"]), (GRID_SIZE - CELL_SIZE*2, PAD[1] - 21))
+
+        for event in pg.event.get():
+            if event.type == pg.QUIT:
+                status = False
+            elif event.type == pg.MOUSEBUTTONDOWN:
+                mx, my = [int(cord - PAD[index])//(CELL_SIZE + CELL_GAP) for index, cord in enumerate(mouse.get_pos())]
+                if (my == 10):
+                    markCells(mx+1)
+                elif(my in range(9) and cNumber != ' ' and puzzle[my][mx] == ' '):
+                    if (grid[my][mx] == cNumber):
+                        puzzle[my][mx] = cNumber
+                        gridCells(mx, my)
+                        correctSound.play()
+                    else:
+                        mistakes += 1
+                        if (mistakes == 3):
+                            gameoverSound.play()
+                            pg.time.wait(1200)
+                            status = False
+                        else:
+                            incorrectSound.play()
+
+        display.update()
+
+        if (puzzle == grid):
+            successSound.play()
+            pg.time.wait(1400)
+            status = False
+
+    pg.quit()
